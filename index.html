@@ -329,15 +329,16 @@ body {
 
 <div class="main">
 
-  <!-- API KEY -->
+  <!-- POLLINATIONS INFO -->
   <div class="card">
-    <div class="card-title">🔑 Hugging Face APIトークン</div>
-    <div class="api-row">
-      <input type="password" id="apiKey" placeholder="hf_xxxxxxxxxxxxxxxx">
-      <button class="btn-small" onclick="checkToken()">確認</button>
+    <div class="card-title">✨ AI画像生成エンジン</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(105,240,174,0.1);border-radius:12px;border:1px solid rgba(105,240,174,0.25)">
+      <span style="font-size:24px">🆓</span>
+      <div>
+        <div style="color:#69f0ae;font-weight:bold;font-size:13px">Pollinations AI（完全無料・登録不要）</div>
+        <div style="color:var(--text-sub);font-size:11px;margin-top:2px">トークン不要。そのまま生成できます！</div>
+      </div>
     </div>
-    <div class="api-status" id="apiStatus"></div>
-    <div class="api-note">⚠️ トークンはブラウザ内のみで使用。外部送信なし。</div>
   </div>
 
   <!-- 写真アップロード -->
@@ -450,7 +451,7 @@ body {
   <!-- 生成 -->
   <div class="card">
     <button class="gen-btn" id="genBtn" onclick="startGenerate()">✨ スタンプを生成する（最大8枚）</button>
-    <div class="gen-sub">失敗した場合は自動再試行。GitHub公開後はImg2Imgも有効。</div>
+    <div class="gen-sub">完全無料・登録不要で生成できます。1枚10〜20秒ほどかかります。</div>
     <div class="progress-wrap" id="progressWrap">
       <div class="prog-text" id="progText">準備中...</div>
       <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
@@ -613,29 +614,8 @@ function handlePhoto(e) {
   reader.readAsDataURL(file);
 }
 
-// ===== TOKEN CHECK =====
-async function checkToken() {
-  const token = document.getElementById('apiKey').value.trim();
-  if (!token) return;
-  const st = document.getElementById('apiStatus');
-  st.className = 'api-status'; st.textContent = '確認中...'; st.style.display = 'block';
-  try {
-    const res = await fetch('https://huggingface.co/api/whoami-v2', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const d = await res.json();
-      st.className = 'api-status ok';
-      st.textContent = `✅ 接続成功！ユーザー: ${d.name}`;
-    } else {
-      st.className = 'api-status err';
-      st.textContent = '❌ トークンが無効です';
-    }
-  } catch {
-    st.className = 'api-status err';
-    st.textContent = '❌ 接続エラー（GitHub Pages上で試してください）';
-  }
-}
+// ===== TOKEN CHECK (不要 - Pollinations使用) =====
+function checkToken() {}
 
 // ===== BUILD PROMPT =====
 function buildPrompt(serif, attempt) {
@@ -663,9 +643,8 @@ Chibi style: big round head, tiny body, huge sparkly eyes, rosy cheeks, expressi
 IMPORTANT: Output ONLY the SVG code. Start with <svg and end with </svg>. No text inside image, no explanation.`;
 }
 
-// ===== HF API CALL =====
-async function callHF(serif, attempt) {
-  const token = document.getElementById('apiKey').value.trim();
+// ===== POLLINATIONS AI =====
+async function callPollinations(serif) {
   const pose = POSES[serif] || 'neutral pose, friendly smile';
   const season = SEASON_CONTEXT[currentSeason];
   const hair = document.getElementById('hairStyle').value;
@@ -673,33 +652,17 @@ async function callHF(serif, attempt) {
   const hairCol = document.getElementById('hairColor').value;
   const free = document.getElementById('freeword').value.trim();
 
-  const prompt = `masterpiece, best quality, yuru-kawaii chibi sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, sticker style, expressive face, no text, simple design${free ? ', ' + free : ''}`;
-  const neg = 'realistic, photorealistic, 3d, ugly, deformed, text, watermark, complex background, dark background';
+  const prompt = encodeURIComponent(
+    `kawaii chibi anime sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute expressive face, simple clean design, no text${free ? ', ' + free : ''}`
+  );
+  const seed = Math.floor(Math.random() * 999999);
+  const url = `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 
-  // 複数モデルを順番に試す
-  const models = [
-    'dreamlike-art/dreamlike-anime-1.0',
-    'Ojimi/anime-kawai-diffusion',
-    'hakurei/waifu-diffusion',
-  ];
-
-  for (const model of models) {
-    try {
-      const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { negative_prompt: neg, num_inference_steps: 20, guidance_scale: 7.5, width: 512, height: 512 }
-        })
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        if (blob.size > 1000) return URL.createObjectURL(blob);
-      }
-    } catch {}
-  }
-  throw new Error('全モデルでエラー');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Pollinations error: ${res.status}`);
+  const blob = await res.blob();
+  if (blob.size < 1000) throw new Error('画像サイズが小さすぎます');
+  return URL.createObjectURL(blob);
 }
 
 // ===== CLAUDE SVG =====
@@ -828,9 +791,6 @@ async function startGenerate() {
   });
   rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const token = document.getElementById('apiKey').value.trim();
-  const useHF = token.startsWith('hf_');
-
   for (let i = 0; i < selected.length; i++) {
     const serif = selected[i];
     setProgress(Math.round(i / selected.length * 90), `「${serif}」を生成中... (${i+1}/${selected.length})`);
@@ -840,13 +800,8 @@ async function startGenerate() {
     let canvas = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        if (useHF) {
-          const url = await callHF(serif, attempt);
-          canvas = await blobUrlToCanvas(url, serif);
-        } else {
-          const svg = await callClaudeSVG(serif, attempt);
-          if (svg) canvas = await svgToCanvas(svg, serif);
-        }
+        const url = await callPollinations(serif);
+        canvas = await blobUrlToCanvas(url, serif);
         if (canvas) break;
       } catch (e) { if (attempt === 1) console.warn(serif, e); }
     }
@@ -891,18 +846,11 @@ async function startGenerate() {
 async function retryOne(i, serif) {
   document.getElementById(`rw-${i}`).innerHTML = `<div class="result-spinning">✨</div>`;
   document.getElementById(`rst-${i}`).textContent = '再試行中...';
-  const token = document.getElementById('apiKey').value.trim();
-  const useHF = token.startsWith('hf_');
   let canvas = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      if (useHF) {
-        const url = await callHF(serif, attempt);
-        canvas = await blobUrlToCanvas(url, serif);
-      } else {
-        const svg = await callClaudeSVG(serif, attempt);
-        if (svg) canvas = await svgToCanvas(svg, serif);
-      }
+      const url = await callPollinations(serif);
+      canvas = await blobUrlToCanvas(url, serif);
       if (canvas) break;
     } catch {}
   }
