@@ -582,26 +582,26 @@ const PRESETS = [
   {e:'🤝',t:'よろしく'},{e:'👌',t:'いいね！'},{e:'😱',t:'びっくり'},{e:'🍵',t:'ほっこり'},
 ];
 const POSES = {
-  'おはよう':'yawning, arms stretched, sleepy eyes',
-  'おやすみ':'eyes closed, hands together, sleepy smile',
-  'ありがとう':'bowing happily, sparkles around',
-  'ごめんね':'hands pressed, apologetic, sweat drop',
-  '了解！':'thumbs up, winking, confident',
-  'わかった':'nodding, finger up, cheerful',
-  'ウケる〜':'laughing hard, tears of joy',
-  '泣ける…':'crying, big tears, sad face',
-  'むかつく':'puffed cheeks, steam, angry',
-  'どうしよ':'worried, sweat drop, tilted head',
-  'がんばれ！':'fists raised, cheering, energetic',
-  'いける！':'fist pump, big smile',
-  '暇だ〜':'chin on hand, bored, slouching',
-  'だるい':'lying down, tired, half-closed eyes',
-  'やったー！':'jumping, arms up, celebrating',
-  'テンション↑':'sparkling eyes, excited, party',
-  'よろしく':'friendly bow, warm smile',
-  'いいね！':'thumbs up, winking, sparkle',
-  'びっくり':'shocked, mouth open, jumping back',
-  'ほっこり':'holding warm drink, soft smile, cozy',
+  'おはよう': 'waking up pose: both arms stretched wide above head, yawning with open mouth, half-closed drowsy eyes, standing or sitting, slightly disheveled hair, morning sleepy expression, warm soft light',
+  'おやすみ': 'sleeping pose: eyes gently closed, hands pressed together under cheek like pillow, peaceful smile, slightly curled body, small zzz bubbles floating, cozy sleepy expression',
+  'ありがとう': 'deep grateful bow: body bent forward at 45 degrees, hands on knees, big happy smile, eyes curved upward, sparkles and stars floating around, sincere thankful expression',
+  'ごめんね': 'apologizing pose: both palms pressed together in front of chest, eyes squeezed shut, head bowed slightly, sweat drop on forehead, nervous sheepish expression, small tears',
+  '了解！': 'confident OK pose: one arm raised with thumb up, other hand on hip, one eye winking, big confident grin, leaning slightly forward with energy',
+  'わかった': 'eureka pose: index finger pointing straight up, eyes wide open with realization, mouth open in aha expression, slight forward lean, lightbulb effect nearby',
+  'ウケる〜': 'laughing out loud pose: both hands on cheeks, body bent forward laughing, eyes closed into crescents, tears of joy streaming, mouth wide open laughing, shaking with laughter',
+  '泣ける…': 'crying pose: both hands covering face, shoulders shaking, large tears streaming down, eyes red and puffy, hunched sad posture, sniffling expression',
+  'むかつく': 'angry pose: arms crossed tightly over chest, eyebrows furrowed in sharp V shape, puffed cheeks, steam shooting from head, foot stomping, red anger vein visible',
+  'どうしよ': 'worried pose: hands on both cheeks in panic, eyes wide and anxious, sweat drops flying, head tilted with question marks, trembling slightly, distressed expression',
+  'がんばれ！': 'cheering pose: both fists raised high in air above head, legs apart in power stance, eyes shining with determination, big encouraging smile, energy lines radiating outward',
+  'いける！': 'pumped up pose: one fist thrust forward toward viewer, other arm bent at side, eyes burning with determination, wide grin showing teeth, dynamic forward-leaning stance',
+  '暇だ〜': 'bored pose: chin resting heavily on one hand, elbow on surface, eyes drooping with boredom, other hand dangling limp, slouched posture, blank vacant expression',
+  'だるい': 'exhausted pose: completely limp body melting downward, arms hanging loose, eyes half-closed with fatigue, head drooping, slouched like no energy at all, wilting expression',
+  'やったー！': 'victory jump pose: both legs off ground mid-jump, both arms raised in V above head, eyes sparkling with joy, huge open-mouthed smile, confetti and stars exploding around',
+  'テンション↑': 'hyper excited pose: whole body vibrating with energy, both arms up waving, eyes sparkling like stars, huge grin, surrounded by lightning bolts and sparkles, bouncing on toes',
+  'よろしく': 'polite greeting pose: slight bow at waist, both hands at sides, warm gentle smile, eyes friendly and welcoming, confident yet humble posture',
+  'いいね！': 'thumbs up pose: arm extended toward viewer with big thumbs up, other hand on hip, eyes winking playfully, cheerful smile, sparkle effect on thumb',
+  'びっくり': 'shocked pose: body jumping back in surprise, both hands raised with palms out, eyes wide as saucers, mouth gaping open, hair standing on end, shock lines radiating out',
+  'ほっこり': 'cozy warm pose: both hands wrapped around warm cup, eyes gently closed in contentment, soft smile, relaxed shoulders, gentle warm glow around body, peaceful expression',
 };
 
 let selected = [];
@@ -777,7 +777,7 @@ function buildStabilityPrompt(serif) {
   const styleHint = styleBase64 ? 'in the style of the reference image, ' : '';
   const propHint = prop ? `, holding ${prop}, ${prop} in hands` : '';
 
-  return `${styleHint}yuru-kawaii chibi anime sticker, ${comp}, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute round eyes, rosy cheeks, expressive face, simple clean line art, no text, sticker style${propHint}${free ? ', ' + free : ''}`;
+  return `${styleHint}yuru-kawaii chibi anime sticker, ${comp}, CHARACTER POSE AND EXPRESSION: ${pose}, character appearance: ${hairCol}, ${hair}, ${cloth}, setting: ${season}, art style: pastel colors, white background, cute round eyes, rosy cheeks, highly expressive face and body language, dynamic pose, simple clean line art, no text, LINE sticker style${propHint}${free ? ', ' + free : ''}`;
 }
 
 async function generateStabilityImage(serif) {
