@@ -342,7 +342,7 @@ body {
 
   <!-- 写真アップロード -->
   <div class="card">
-    <div class="card-title">📸 写真アップロード <span>GitHub公開後にImg2Imgが有効</span></div>
+    <div class="card-title">📸 写真アップロード <span>✅ Img2Img有効！イラスト化に使用されます</span></div>
     <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
       <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
       <div id="uploadContent">
@@ -350,7 +350,7 @@ body {
         <div class="upload-text"><strong>タップして写真を選ぶ</strong><br>顔写真を1枚アップロード</div>
       </div>
     </div>
-    <div class="img2img-note" id="img2imgNote">📌 GitHub Pages公開後：写真→ゆるかわイラスト自動変換（Img2Img）が有効になります</div>
+    <div class="img2img-note" id="img2imgNote">📌 写真をアップロードするとImg2Imgでイラスト化します。未アップロード時はテキストのみで生成。</div>
   </div>
 
   <!-- キャラクターカスタマイズ -->
@@ -607,7 +607,7 @@ function handlePhoto(e) {
   reader.onload = (ev) => {
     photoBase64 = ev.target.result.split(',')[1];
     document.getElementById('uploadContent').innerHTML = `<img src="${ev.target.result}" class="photo-preview">`;
-    document.getElementById('img2imgNote').textContent = '✅ 写真アップロード済み！GitHub Pages公開後にImg2Imgが有効になります';
+    document.getElementById('img2imgNote').textContent = '✅ 写真アップロード済み！この写真を元にイラストを生成します🎨';
     document.getElementById('img2imgNote').className = 'img2img-note active';
   };
   reader.readAsDataURL(file);
@@ -682,6 +682,12 @@ async function generateStabilityImage(serif) {
   const prompt = buildStabilityPrompt(serif);
   const neg = 'realistic, photorealistic, 3d render, ugly, deformed, text, watermark, dark background, nsfw, complex background';
 
+  // Img2Img: 写真がアップロードされている場合
+  if (photoBase64) {
+    return await generateImg2Img(key, prompt, neg, serif);
+  }
+
+  // Text2Image: 写真なしの場合
   const res = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
     method: 'POST',
     headers: {
@@ -710,6 +716,91 @@ async function generateStabilityImage(serif) {
   const b64 = data.artifacts?.[0]?.base64;
   if (!b64) throw new Error('画像データなし');
   return `data:image/png;base64,${b64}`;
+}
+
+// ===== IMG2IMG =====
+async function generateImg2Img(key, prompt, neg, serif) {
+  // photoBase64をリサイズして送信（1024x1024に合わせる）
+  const resizedB64 = await resizeImageToB64(photoBase64, 1024, 1024);
+
+  const formData = new FormData();
+  // base64をBlobに変換
+  const byteStr = atob(resizedB64);
+  const arr = new Uint8Array(byteStr.length);
+  for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+  const blob = new Blob([arr], { type: 'image/png' });
+
+  formData.append('init_image', blob, 'photo.png');
+  formData.append('init_image_mode', 'IMAGE_STRENGTH');
+  formData.append('image_strength', '0.45'); // 0=元画像に忠実, 1=プロンプト重視
+  formData.append('text_prompts[0][text]', prompt);
+  formData.append('text_prompts[0][weight]', '1');
+  formData.append('text_prompts[1][text]', neg);
+  formData.append('text_prompts[1][weight]', '-1');
+  formData.append('cfg_scale', '7');
+  formData.append('steps', '30');
+  formData.append('samples', '1');
+
+  const res = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Accept': 'application/json',
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    // Img2Imgが失敗したらText2Imageにフォールバック
+    console.warn('Img2Img failed, fallback to text2img:', err.message);
+    return await generateText2Img(key, prompt, neg);
+  }
+  const data = await res.json();
+  const b64 = data.artifacts?.[0]?.base64;
+  if (!b64) throw new Error('画像データなし');
+  return `data:image/png;base64,${b64}`;
+}
+
+async function generateText2Img(key, prompt, neg) {
+  const res = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      text_prompts: [
+        { text: prompt, weight: 1 },
+        { text: neg, weight: -1 }
+      ],
+      cfg_scale: 7, height: 1024, width: 1024, steps: 30, samples: 1,
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.message || `HTTP ${res.status}`); }
+  const data = await res.json();
+  const b64 = data.artifacts?.[0]?.base64;
+  if (!b64) throw new Error('画像データなし');
+  return `data:image/png;base64,${b64}`;
+}
+
+// 画像をリサイズしてbase64返す
+function resizeImageToB64(base64, w, h) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // アスペクト比を保ってセンタークロップ
+      const scale = Math.max(w / img.width, h / img.height);
+      const sw = img.width * scale, sh = img.height * scale;
+      ctx.drawImage(img, (w - sw) / 2, (h - sh) / 2, sw, sh);
+      resolve(canvas.toDataURL('image/png').split(',')[1]);
+    };
+    img.src = `data:image/png;base64,${base64}`;
+  });
 }
 
 // ===== CLAUDE SVG =====
