@@ -643,7 +643,7 @@ Chibi style: big round head, tiny body, huge sparkly eyes, rosy cheeks, expressi
 IMPORTANT: Output ONLY the SVG code. Start with <svg and end with </svg>. No text inside image, no explanation.`;
 }
 
-// ===== POLLINATIONS AI (img要素で読み込み・CORS回避) =====
+// ===== POLLINATIONS AI =====
 function buildPollinationsUrl(serif) {
   const pose = POSES[serif] || 'neutral pose, friendly smile';
   const season = SEASON_CONTEXT[currentSeason];
@@ -658,30 +658,13 @@ function buildPollinationsUrl(serif) {
   return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 }
 
-async function callPollinations(serif) {
+// imgタグで画像読み込み（CORS不要・シンプル）
+function loadImageByTag(url) {
   return new Promise((resolve, reject) => {
-    const url = buildPollinationsUrl(serif);
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    const timeout = setTimeout(() => reject(new Error('タイムアウト')), 60000);
-    img.onload = () => {
-      clearTimeout(timeout);
-      // imgをcanvasに描画してblobURLを取得
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth || 512;
-      c.height = img.naturalHeight || 512;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      c.toBlob(blob => {
-        if (blob && blob.size > 1000) resolve(URL.createObjectURL(blob));
-        else reject(new Error('Blob生成失敗'));
-      }, 'image/png');
-    };
-    img.onerror = () => {
-      clearTimeout(timeout);
-      // CORS失敗時はURLをそのまま返す（blobUrlToCanvasがcrossOriginなしで試みる）
-      resolve(url);
-    };
+    const timeout = setTimeout(() => reject(new Error('タイムアウト(60秒)')), 60000);
+    img.onload = () => { clearTimeout(timeout); resolve(img); };
+    img.onerror = () => { clearTimeout(timeout); reject(new Error('画像読み込み失敗')); };
     img.src = url;
   });
 }
@@ -787,7 +770,7 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // ===== GENERATE =====
-let generatedCanvases = [];
+let generatedUrls = [];
 
 async function startGenerate() {
   if (selected.length === 0) { showErr('セリフを1つ以上選んでください。'); return; }
@@ -872,41 +855,40 @@ async function startGenerate() {
 async function retryOne(i, serif) {
   document.getElementById(`rw-${i}`).innerHTML = `<div class="result-spinning">✨</div>`;
   document.getElementById(`rst-${i}`).textContent = '再試行中...';
-  let canvas = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const url = await callPollinations(serif);
-      canvas = await blobUrlToCanvas(url, serif);
-      if (canvas) break;
-    } catch {}
-  }
-  generatedCanvases[i] = canvas;
-  const wrap = document.getElementById(`rw-${i}`);
-  const st = document.getElementById(`rst-${i}`);
-  if (canvas) {
-    wrap.innerHTML = ''; wrap.appendChild(canvas);
-    st.textContent = '✅ 完成'; st.style.color = '#69f0ae';
-  } else {
-    wrap.innerHTML = '<div style="font-size:22px">😵</div>';
-    st.textContent = '❌ エラー'; st.style.color = '#ff8a80';
+  const imgUrl = buildPollinationsUrl(serif);
+  generatedUrls[i] = { serif, url: imgUrl };
+  try {
+    await loadImageByTag(imgUrl);
+    const wrap = document.getElementById(`rw-${i}`);
+    wrap.innerHTML = '';
+    const container = document.createElement('div');
+    container.style.cssText = 'position:relative;width:100%;aspect-ratio:370/320;';
+    const img = document.createElement('img');
+    img.src = imgUrl;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
+    const label = document.createElement('div');
+    label.textContent = serif;
+    label.style.cssText = 'position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:white;font-size:13px;font-weight:bold;padding:3px 10px;border-radius:8px;white-space:nowrap;font-family:inherit;';
+    container.appendChild(img);
+    container.appendChild(label);
+    wrap.appendChild(container);
+    document.getElementById(`rst-${i}`).textContent = '✅ 完成';
+    document.getElementById(`rst-${i}`).style.color = '#69f0ae';
+  } catch {
+    document.getElementById(`rw-${i}`).innerHTML = '<div style="font-size:22px">😵</div>';
+    document.getElementById(`rst-${i}`).textContent = '❌ エラー';
+    document.getElementById(`rst-${i}`).style.color = '#ff8a80';
   }
 }
 
-// ===== ZIP DOWNLOAD =====
-async function downloadZip() {
-  const zip = new JSZip();
-  generatedCanvases.forEach((canvas, i) => {
-    if (!canvas) return;
-    const serif = selected[i];
-    const dataUrl = canvas.toDataURL('image/png');
-    const base64 = dataUrl.split(',')[1];
-    zip.file(`stamp_${String(i+1).padStart(2,'0')}_${serif}.png`, base64, { base64: true });
+// ===== ZIP / 一括保存 =====
+function downloadZip() {
+  // 各画像を新しいタブで開く（スマホではこれが一番確実）
+  generatedUrls.forEach((item, i) => {
+    if (!item) return;
+    setTimeout(() => window.open(item.url, '_blank'), i * 500);
   });
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'stamps.zip';
-  a.click();
+  alert('各スタンプを新しいタブで開きました！\n画像を長押し→「画像を保存」で保存できます。');
 }
 
 function setProgress(pct, text) {
