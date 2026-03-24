@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ゆるかわスタンプメーカー</title>
+<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=Kosugi+Maru&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --season-bg1: #0f2a4a;
+  --season-bg2: #1a3a5c;
+  --season-accent: #4fc3f7;
+  --season-accent2: #81d4fa;
+  --season-particle: rgba(200,235,255,0.2);
+  --card-bg: rgba(255,255,255,0.08);
+  --card-border: rgba(180,220,255,0.18);
+  --text-main: rgba(220,240,255,0.9);
+  --text-sub: rgba(180,220,255,0.5);
+  --btn-bg: linear-gradient(135deg,#29b6f6,#0288d1);
+  --btn-shadow: rgba(41,182,246,0.4);
+}
+.season-spring {
+  --season-bg1: #2d1a3a; --season-bg2: #3d2550; --season-accent: #f48fb1;
+  --season-accent2: #f8bbd0; --season-particle: rgba(255,182,193,0.2);
+  --card-border: rgba(255,182,193,0.2); --text-main: rgba(255,230,240,0.9);
+  --text-sub: rgba(255,182,193,0.5); --btn-bg: linear-gradient(135deg,#f48fb1,#e91e8c);
+  --btn-shadow: rgba(244,143,177,0.4);
+}
+.season-summer {
+  --season-bg1: #0a2a1a; --season-bg2: #0f3d28; --season-accent: #69f0ae;
+  --season-accent2: #b9f6ca; --season-particle: rgba(105,240,174,0.2);
+  --card-border: rgba(105,240,174,0.2); --text-main: rgba(200,255,230,0.9);
+  --text-sub: rgba(105,240,174,0.5); --btn-bg: linear-gradient(135deg,#00e676,#00c853);
+  --btn-shadow: rgba(0,230,118,0.4);
+}
+.season-autumn {
+  --season-bg1: #2a1a0a; --season-bg2: #3d2810; --season-accent: #ffb74d;
+  --season-accent2: #ffe0b2; --season-particle: rgba(255,183,77,0.2);
+  --card-border: rgba(255,183,77,0.2); --text-main: rgba(255,240,210,0.9);
+  --text-sub: rgba(255,183,77,0.5); --btn-bg: linear-gradient(135deg,#ffa726,#e65100);
+  --btn-shadow: rgba(255,167,38,0.4);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Kosugi Maru','Hiragino Kaku Gothic ProN',sans-serif;
+  background: linear-gradient(160deg, var(--season-bg1), var(--season-bg2) 50%, var(--season-bg1));
+  min-height:100vh; transition: background 0.6s;
+}
+
+/* PARTICLES */
+.particle { position:fixed; pointer-events:none; color:var(--season-particle); animation:float 4s ease-in-out infinite alternate; z-index:0; }
+@keyframes float { from{transform:translateY(0) rotate(0deg)} to{transform:translateY(14px) rotate(20deg)} }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes shimmer { 0%{left:-100%} 100%{left:200%} }
+
+/* HEADER */
+.header {
+  background:rgba(0,0,0,0.25); backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--card-border);
+  padding:12px 16px; display:flex; align-items:center; gap:10;
+  position:sticky; top:0; z-index:100; transition:border-color 0.6s;
+}
+.header-icon {
+  width:38px; height:38px;
+  background:var(--btn-bg); border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; box-shadow:0 0 14px var(--btn-shadow);
+  transition:background 0.6s, box-shadow 0.6s;
+}
+.header-title { color:white; font-family:'Kaisei Decol',serif; font-size:17px; }
+.header-sub { color:var(--text-sub); font-size:10px; transition:color 0.6s; }
+
+/* SEASON TABS */
+.season-tabs {
+  display:flex; gap:6px; margin-left:auto; flex-wrap:nowrap;
+}
+.season-tab {
+  padding:5px 10px; border-radius:20px;
+  border:1.5px solid var(--card-border);
+  background:rgba(255,255,255,0.06);
+  color:var(--text-sub); font-size:11px; cursor:pointer;
+  font-family:'Kosugi Maru',sans-serif;
+  transition:all 0.2s; white-space:nowrap;
+}
+.season-tab.active {
+  background:var(--btn-bg); color:white;
+  border-color:transparent; box-shadow:0 2px 10px var(--btn-shadow);
+}
+
+/* MAIN */
+.main { max-width:580px; margin:0 auto; padding:14px 12px 80px; position:relative; z-index:1; }
+
+/* CARD */
+.card {
+  background:var(--card-bg); backdrop-filter:blur(14px);
+  border-radius:22px; border:1px solid var(--card-border);
+  padding:18px; margin-bottom:12px;
+  box-shadow:0 6px 28px rgba(0,0,0,0.25);
+  transition:border-color 0.6s, background 0.6s;
+  animation:fadeIn 0.4s ease;
+}
+.card-title {
+  color:var(--season-accent2); font-weight:bold; font-size:14px;
+  margin-bottom:14px; display:flex; align-items:center; gap:6px;
+  transition:color 0.6s;
+}
+.card-title span { font-size:10px; color:var(--text-sub); font-weight:normal; margin-left:auto; }
+
+/* API KEY */
+.api-row { display:flex; gap:8px; align-items:center; }
+.api-row input {
+  flex:1; padding:10px 14px;
+  border:1.5px solid var(--card-border);
+  border-radius:12px; font-family:inherit; font-size:13px;
+  background:rgba(255,255,255,0.07); color:var(--text-main);
+  outline:none; transition:border-color 0.2s;
+}
+.api-row input:focus { border-color:var(--season-accent); }
+.api-row input::placeholder { color:var(--text-sub); }
+.btn-small {
+  padding:9px 14px; border:none; border-radius:12px;
+  background:var(--btn-bg); color:white;
+  font-family:inherit; font-size:12px; cursor:pointer;
+  box-shadow:0 3px 12px var(--btn-shadow); white-space:nowrap;
+  transition:background 0.3s;
+}
+.api-status { font-size:12px; margin-top:7px; padding:6px 12px; border-radius:8px; display:none; }
+.api-status.ok { display:block; background:rgba(105,240,174,0.15); color:#69f0ae; }
+.api-status.err { display:block; background:rgba(255,100,100,0.15); color:#ff6b6b; }
+.api-note { font-size:10px; color:var(--text-sub); margin-top:5px; }
+
+/* PHOTO UPLOAD */
+.upload-area {
+  border:2px dashed var(--card-border); border-radius:16px;
+  padding:24px; text-align:center; cursor:pointer;
+  background:rgba(255,255,255,0.04); transition:all 0.2s;
+  position:relative; overflow:hidden;
+}
+.upload-area:hover { border-color:var(--season-accent); background:rgba(255,255,255,0.08); }
+.upload-area input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.upload-emoji { font-size:36px; margin-bottom:8px; }
+.upload-text { color:var(--text-sub); font-size:13px; }
+.upload-text strong { color:var(--season-accent2); }
+.photo-preview {
+  width:100%; max-height:160px; border-radius:12px;
+  object-fit:cover; display:block; margin-bottom:8px;
+}
+.img2img-note {
+  font-size:11px; color:var(--text-sub); margin-top:6px; text-align:center;
+  padding:6px 10px; background:rgba(255,255,255,0.05); border-radius:8px;
+}
+.img2img-note.active { color:#69f0ae; background:rgba(105,240,174,0.1); }
+
+/* CHARACTER CUSTOMIZER */
+.custom-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.custom-item label { display:block; font-size:10px; color:var(--text-sub); margin-bottom:4px; }
+.custom-item select, .custom-item input[type=text] {
+  width:100%; padding:8px 10px;
+  background:rgba(255,255,255,0.07); border:1.5px solid var(--card-border);
+  border-radius:10px; color:var(--text-main); font-family:inherit; font-size:12px;
+  outline:none; transition:border-color 0.2s;
+}
+.custom-item select:focus, .custom-item input[type=text]:focus { border-color:var(--season-accent); }
+.custom-item select option { background:#1a2a3a; }
+.freeword { grid-column:span 2; }
+.freeword input { width:100%; }
+
+/* SERIF GRID */
+.serif-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px; }
+.serif-item {
+  background:rgba(255,255,255,0.05); border:1.5px solid transparent;
+  border-radius:11px; padding:7px 3px; text-align:center; cursor:pointer;
+  font-size:11px; color:var(--text-sub); transition:all 0.15s;
+}
+.serif-item:hover { border-color:var(--season-accent); }
+.serif-item.on { border-color:var(--season-accent); background:rgba(255,255,255,0.12); color:var(--season-accent2); font-weight:bold; }
+.serif-item .ei { font-size:15px; display:block; margin-bottom:2px; }
+.custom-serif-row {
+  display:flex; gap:8px; align-items:center;
+  background:rgba(255,255,255,0.06); border-radius:11px;
+  padding:8px 12px; border:1px solid var(--card-border);
+}
+.custom-serif-row input {
+  border:none; background:transparent; font-family:inherit;
+  font-size:12px; flex:1; outline:none; color:var(--text-main);
+}
+.custom-serif-row input::placeholder { color:var(--text-sub); }
+.tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+.tag {
+  background:var(--btn-bg); color:white; border-radius:20px;
+  padding:3px 10px; font-size:11px; display:flex; align-items:center; gap:4px;
+  box-shadow:0 2px 8px var(--btn-shadow); animation:fadeIn 0.2s ease;
+}
+.tag-x { cursor:pointer; opacity:0.7; font-size:13px; }
+.count { font-size:11px; color:var(--text-sub); margin-top:7px; }
+.count strong { color:var(--season-accent); }
+
+/* GENERATE BTN */
+.gen-btn {
+  width:100%; padding:15px; font-size:16px; font-weight:bold;
+  border:none; border-radius:50px; cursor:pointer;
+  font-family:'Kaisei Decol',serif;
+  background:var(--btn-bg); color:white;
+  box-shadow:0 5px 22px var(--btn-shadow);
+  transition:all 0.2s; letter-spacing:0.05em;
+  position:relative; overflow:hidden;
+}
+.gen-btn:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 8px 28px var(--btn-shadow); }
+.gen-btn:disabled { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.3); cursor:not-allowed; box-shadow:none; transform:none; }
+.gen-btn::after {
+  content:''; position:absolute; top:0; width:40%; height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);
+  animation:shimmer 2s infinite; pointer-events:none;
+}
+.gen-sub { font-size:10px; color:var(--text-sub); margin-top:6px; text-align:center; }
+
+/* PROGRESS */
+.progress-wrap { display:none; margin-top:14px; text-align:center; }
+.progress-wrap.show { display:block; }
+.prog-text { font-size:12px; color:var(--text-main); margin-bottom:7px; }
+.prog-track { height:7px; background:rgba(255,255,255,0.1); border-radius:10px; overflow:hidden; }
+.prog-fill {
+  height:100%; border-radius:10px; transition:width 0.4s;
+  background:var(--btn-bg); box-shadow:0 0 8px var(--btn-shadow);
+  width:0%;
+}
+.prog-pct { font-size:10px; color:var(--text-sub); margin-top:4px; }
+
+/* PREVIEW (LINE風) */
+.line-preview {
+  background:linear-gradient(135deg,#6ec6f5,#87CEEB);
+  border-radius:16px; padding:14px; min-height:120px;
+  background-image:radial-gradient(circle at 30% 40%,rgba(255,255,255,0.15) 0%,transparent 60%);
+}
+.preview-date {
+  text-align:center; color:rgba(255,255,255,0.8); font-size:10px;
+  background:rgba(0,0,0,0.1); border-radius:10px; padding:2px 8px;
+  display:block; width:fit-content; margin:0 auto 12px;
+}
+.preview-msgs { display:flex; flex-direction:column; gap:10px; }
+.preview-msg { display:flex; align-items:flex-end; gap:8px; }
+.preview-msg.right { flex-direction:row-reverse; }
+.preview-avatar {
+  width:30px; height:30px; border-radius:50%; background:white;
+  display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+}
+.preview-stamp {
+  width:72px; height:72px; background:rgba(255,255,255,0.88);
+  border-radius:12px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.12);
+  overflow:hidden; position:relative;
+}
+.preview-stamp-svg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+.preview-stamp-label {
+  position:absolute; bottom:4px;
+  background:rgba(0,0,0,0.55); color:white;
+  font-size:8px; padding:1px 5px; border-radius:6px;
+  font-family:'Kosugi Maru',sans-serif; max-width:90%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.preview-hint { font-size:10px; color:var(--text-sub); margin-top:8px; text-align:center; }
+
+/* RESULT GRID */
+.result-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:12px; }
+.result-item {
+  background:rgba(255,255,255,0.06); border:1px solid var(--card-border);
+  border-radius:16px; padding:10px; text-align:center;
+  animation:fadeIn 0.3s ease; transition:border-color 0.15s;
+}
+.result-item:hover { border-color:var(--season-accent); }
+.result-canvas-wrap {
+  width:100%; aspect-ratio:370/320; border-radius:12px;
+  background:white; overflow:hidden; display:flex;
+  align-items:center; justify-content:center;
+  margin-bottom:7px; box-shadow:0 3px 12px rgba(0,0,0,0.2);
+  position:relative;
+}
+.result-canvas-wrap canvas { width:100%; height:100%; }
+.result-placeholder { font-size:28px; opacity:0.3; }
+.result-spinning { font-size:26px; animation:spin 1.5s linear infinite; }
+.result-serif-label { font-size:12px; color:var(--season-accent2); font-weight:bold; margin-bottom:5px; }
+.result-dl {
+  width:100%; padding:5px; background:rgba(255,255,255,0.08);
+  border:1px solid var(--card-border); border-radius:8px;
+  color:var(--season-accent); font-size:10px; cursor:pointer;
+  font-family:inherit; transition:background 0.15s;
+}
+.result-dl:hover { background:rgba(255,255,255,0.14); }
+.retry-btn {
+  margin-top:4px; width:100%; padding:4px;
+  background:rgba(255,100,100,0.1); border:1px solid rgba(255,100,100,0.3);
+  border-radius:8px; color:#ff8a80; font-size:10px; cursor:pointer; font-family:inherit;
+}
+
+/* DL ALL */
+.dl-all-wrap { display:flex; gap:8px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
+.btn-zip {
+  padding:12px 24px; border-radius:30px; border:none;
+  background:var(--btn-bg); color:white; font-family:'Kaisei Decol',serif;
+  font-size:14px; cursor:pointer; box-shadow:0 4px 16px var(--btn-shadow);
+  transition:all 0.15s;
+}
+.btn-zip:hover { transform:translateY(-1px); }
+</style>
+</head>
+<body>
+
+<!-- PARTICLES -->
+<div id="particles"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-icon" id="headerIcon">🎨</div>
+  <div>
+    <div class="header-title">ゆるかわスタンプメーカー</div>
+    <div class="header-sub">全機能版 v1.0</div>
+  </div>
+  <div class="season-tabs" id="seasonTabs">
+    <button class="season-tab active" data-season="winter" onclick="setSeason('winter',this)">❄ 冬</button>
+    <button class="season-tab" data-season="spring" onclick="setSeason('spring',this)">🌸 春</button>
+    <button class="season-tab" data-season="summer" onclick="setSeason('summer',this)">🌊 夏</button>
+    <button class="season-tab" data-season="autumn" onclick="setSeason('autumn',this)">🍁 秋</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- API KEY -->
+  <div class="card">
+    <div class="card-title">🔑 Hugging Face APIトークン</div>
+    <div class="api-row">
+      <input type="password" id="apiKey" placeholder="hf_xxxxxxxxxxxxxxxx">
+      <button class="btn-small" onclick="checkToken()">確認</button>
+    </div>
+    <div class="api-status" id="apiStatus"></div>
+    <div class="api-note">⚠️ トークンはブラウザ内のみで使用。外部送信なし。</div>
+  </div>
+
+  <!-- 写真アップロード -->
+  <div class="card">
+    <div class="card-title">📸 写真アップロード <span>GitHub公開後にImg2Imgが有効</span></div>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+      <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+      <div id="uploadContent">
+        <div class="upload-emoji">🤳</div>
+        <div class="upload-text"><strong>タップして写真を選ぶ</strong><br>顔写真を1枚アップロード</div>
+      </div>
+    </div>
+    <div class="img2img-note" id="img2imgNote">📌 GitHub Pages公開後：写真→ゆるかわイラスト自動変換（Img2Img）が有効になります</div>
+  </div>
+
+  <!-- キャラクターカスタマイズ -->
+  <div class="card">
+    <div class="card-title">✨ キャラクターカスタマイズ</div>
+    <div class="custom-grid">
+      <div class="custom-item">
+        <label>💇 ヘアスタイル</label>
+        <select id="hairStyle">
+          <option value="short straight hair">ショート</option>
+          <option value="long straight hair">ロング</option>
+          <option value="curly hair">くるくる</option>
+          <option value="twin tails">ツインテール</option>
+          <option value="bob cut hair">ボブ</option>
+          <option value="ponytail">ポニーテール</option>
+          <option value="bun hairstyle">お団子</option>
+        </select>
+      </div>
+      <div class="custom-item">
+        <label>👕 服装</label>
+        <select id="clothing">
+          <option value="casual outfit">カジュアル</option>
+          <option value="school uniform">制服</option>
+          <option value="dress">ワンピース</option>
+          <option value="hoodie and jeans">パーカー</option>
+          <option value="kimono">着物</option>
+          <option value="sports wear">スポーツ</option>
+          <option value="winter coat and scarf">冬コート</option>
+        </select>
+      </div>
+      <div class="custom-item">
+        <label>👟 靴</label>
+        <select id="shoes">
+          <option value="">なし（省略）</option>
+          <option value="sneakers">スニーカー</option>
+          <option value="boots">ブーツ</option>
+          <option value="sandals">サンダル</option>
+          <option value="loafers">ローファー</option>
+        </select>
+      </div>
+      <div class="custom-item">
+        <label>🎨 カラー</label>
+        <select id="hairColor">
+          <option value="black hair">黒髪</option>
+          <option value="brown hair">茶髪</option>
+          <option value="blonde hair">金髪</option>
+          <option value="pink hair">ピンク</option>
+          <option value="silver hair">シルバー</option>
+        </select>
+      </div>
+      <div class="custom-item freeword">
+        <label>💬 フリーワード（追加したい要素）</label>
+        <input type="text" id="freeword" placeholder="例：眼鏡、猫耳、リボン、背が高い…">
+      </div>
+    </div>
+  </div>
+
+  <!-- セリフ選択 -->
+  <div class="card">
+    <div class="card-title">💬 セリフを選ぶ <span>最大8枚</span></div>
+    <div class="serif-grid" id="serifGrid"></div>
+    <div class="custom-serif-row">
+      <span>✍️</span>
+      <input type="text" id="customSerif" placeholder="オリジナルのセリフ（10文字まで）" maxlength="10">
+      <span style="font-size:10px;color:var(--text-sub)" id="charCount">0/10</span>
+      <button class="btn-small" style="padding:5px 10px;font-size:11px" onclick="addCustomSerif()">追加</button>
+    </div>
+    <div class="tags" id="tags"></div>
+    <div class="count">選択中: <strong id="selCount">0</strong> / 8 枚</div>
+  </div>
+
+  <!-- プレビュー -->
+  <div class="card">
+    <div class="card-title">👁 LINEトーク風プレビュー</div>
+    <div class="line-preview">
+      <span class="preview-date">今日</span>
+      <div class="preview-msgs">
+        <div class="preview-msg">
+          <div class="preview-avatar">👤</div>
+          <div class="preview-stamp">
+            <div class="preview-stamp-svg" id="prevLeft">🌅</div>
+            <div class="preview-stamp-label">おはよう</div>
+          </div>
+        </div>
+        <div class="preview-msg right">
+          <div class="preview-avatar">😊</div>
+          <div class="preview-stamp">
+            <div class="preview-stamp-svg" id="prevRight">✨</div>
+            <div class="preview-stamp-label" id="prevLabel">選択中…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="preview-hint">✨ セリフを選ぶとここにリアルタイム反映</div>
+  </div>
+
+  <!-- 生成 -->
+  <div class="card">
+    <button class="gen-btn" id="genBtn" onclick="startGenerate()">✨ スタンプを生成する（最大8枚）</button>
+    <div class="gen-sub">失敗した場合は自動再試行。GitHub公開後はImg2Imgも有効。</div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="prog-text" id="progText">準備中...</div>
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-pct" id="progPct">0%</div>
+    </div>
+    <div id="errBox" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(255,100,100,0.12);border-radius:10px;color:#ff8a80;font-size:12px;"></div>
+  </div>
+
+  <!-- 結果 -->
+  <div class="card" id="resultCard" style="display:none">
+    <div class="card-title">🎉 完成！スタンプセット</div>
+    <div class="result-grid" id="resultGrid"></div>
+    <div class="dl-all-wrap">
+      <button class="btn-zip" onclick="downloadZip()">📦 ZIPでまとめて保存</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== SEASONS =====
+const SEASONS = {
+  winter: { icon:'❄️', particles:['❄','❅','❆','✦'], label:'冬' },
+  spring: { icon:'🌸', particles:['🌸','✿','❀','⁕'], label:'春' },
+  summer: { icon:'🌊', particles:['✦','★','⭐','✧'], label:'夏' },
+  autumn: { icon:'🍁', particles:['🍂','❧','✦','⁕'], label:'秋' },
+};
+let currentSeason = 'winter';
+
+function setSeason(s, btn) {
+  currentSeason = s;
+  document.body.className = s === 'winter' ? '' : `season-${s}`;
+  document.querySelectorAll('.season-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('headerIcon').textContent = SEASONS[s].icon;
+  renderParticles(s);
+}
+
+function renderParticles(s) {
+  const p = SEASONS[s].particles;
+  document.getElementById('particles').innerHTML = Array.from({length:20},(_,i) =>
+    `<div class="particle" style="left:${(i*5.1+2)%100}%;top:${(i*7.3+3)%100}%;font-size:${10+i%10}px;animation-delay:${(i*0.25).toFixed(1)}s">${p[i%p.length]}</div>`
+  ).join('');
+}
+renderParticles('winter');
+
+// ===== SEASON PROMPTS =====
+const SEASON_CONTEXT = {
+  winter: 'winter scene, wearing knit hat and scarf, cold breath visible, snowflakes, cozy winter vibe',
+  spring: 'spring scene, cherry blossoms falling, soft breeze, pastel flowers around, warm sunny day',
+  summer: 'summer scene, sunshine, beach vibes, light summer clothes, energetic fresh feeling',
+  autumn: 'autumn scene, falling leaves, warm golden light, cozy sweater, harvest mood',
+};
+
+// ===== SERIFS =====
+const PRESETS = [
+  {e:'🌅',t:'おはよう'},{e:'🌙',t:'おやすみ'},{e:'🙏',t:'ありがとう'},{e:'😢',t:'ごめんね'},
+  {e:'👍',t:'了解！'},{e:'💡',t:'わかった'},{e:'😂',t:'ウケる〜'},{e:'😭',t:'泣ける…'},
+  {e:'😤',t:'むかつく'},{e:'😰',t:'どうしよ'},{e:'📣',t:'がんばれ！'},{e:'💪',t:'いける！'},
+  {e:'😪',t:'暇だ〜'},{e:'🛋️',t:'だるい'},{e:'🎉',t:'やったー！'},{e:'✨',t:'テンション↑'},
+  {e:'🤝',t:'よろしく'},{e:'👌',t:'いいね！'},{e:'😱',t:'びっくり'},{e:'🍵',t:'ほっこり'},
+];
+const POSES = {
+  'おはよう':'yawning, arms stretched, sleepy eyes',
+  'おやすみ':'eyes closed, hands together, sleepy smile',
+  'ありがとう':'bowing happily, sparkles around',
+  'ごめんね':'hands pressed, apologetic, sweat drop',
+  '了解！':'thumbs up, winking, confident',
+  'わかった':'nodding, finger up, cheerful',
+  'ウケる〜':'laughing hard, tears of joy',
+  '泣ける…':'crying, big tears, sad face',
+  'むかつく':'puffed cheeks, steam, angry',
+  'どうしよ':'worried, sweat drop, tilted head',
+  'がんばれ！':'fists raised, cheering, energetic',
+  'いける！':'fist pump, big smile',
+  '暇だ〜':'chin on hand, bored, slouching',
+  'だるい':'lying down, tired, half-closed eyes',
+  'やったー！':'jumping, arms up, celebrating',
+  'テンション↑':'sparkling eyes, excited, party',
+  'よろしく':'friendly bow, warm smile',
+  'いいね！':'thumbs up, winking, sparkle',
+  'びっくり':'shocked, mouth open, jumping back',
+  'ほっこり':'holding warm drink, soft smile, cozy',
+};
+
+let selected = [];
+
+// セリフグリッド生成
+const grid = document.getElementById('serifGrid');
+PRESETS.forEach(s => {
+  const el = document.createElement('div');
+  el.className = 'serif-item';
+  el.innerHTML = `<span class="ei">${s.e}</span>${s.t}`;
+  el.onclick = () => toggleSerif(s.t, el);
+  grid.appendChild(el);
+});
+
+function toggleSerif(t, el) {
+  if (selected.includes(t)) {
+    selected = selected.filter(s => s !== t);
+    el.classList.remove('on');
+  } else {
+    if (selected.length >= 8) return;
+    selected.push(t);
+    el.classList.add('on');
+  }
+  updateTags(); updatePreview();
+}
+
+document.getElementById('customSerif').addEventListener('input', function() {
+  document.getElementById('charCount').textContent = `${this.value.length}/10`;
+});
+
+function addCustomSerif() {
+  const val = document.getElementById('customSerif').value.trim();
+  if (!val || selected.length >= 8 || selected.includes(val)) return;
+  selected.push(val);
+  document.getElementById('customSerif').value = '';
+  document.getElementById('charCount').textContent = '0/10';
+  updateTags(); updatePreview();
+}
+
+function updateTags() {
+  document.getElementById('tags').innerHTML = selected.map(s =>
+    `<div class="tag">${s}<span class="tag-x" onclick="removeTag('${s}')">×</span></div>`
+  ).join('');
+  document.getElementById('selCount').textContent = selected.length;
+}
+
+function removeTag(t) {
+  selected = selected.filter(s => s !== t);
+  document.querySelectorAll('.serif-item').forEach(el => {
+    if (el.textContent.trim().endsWith(t)) el.classList.remove('on');
+  });
+  updateTags(); updatePreview();
+}
+
+function updatePreview() {
+  if (selected.length > 0) {
+    const last = selected[selected.length - 1];
+    document.getElementById('prevLabel').textContent = last;
+    const preset = PRESETS.find(p => p.t === last);
+    document.getElementById('prevRight').textContent = preset ? preset.e : '😊';
+  }
+}
+
+// ===== PHOTO UPLOAD =====
+let photoBase64 = null;
+
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    photoBase64 = ev.target.result.split(',')[1];
+    document.getElementById('uploadContent').innerHTML = `<img src="${ev.target.result}" class="photo-preview">`;
+    document.getElementById('img2imgNote').textContent = '✅ 写真アップロード済み！GitHub Pages公開後にImg2Imgが有効になります';
+    document.getElementById('img2imgNote').className = 'img2img-note active';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ===== TOKEN CHECK =====
+async function checkToken() {
+  const token = document.getElementById('apiKey').value.trim();
+  if (!token) return;
+  const st = document.getElementById('apiStatus');
+  st.className = 'api-status'; st.textContent = '確認中...'; st.style.display = 'block';
+  try {
+    const res = await fetch('https://huggingface.co/api/whoami-v2', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const d = await res.json();
+      st.className = 'api-status ok';
+      st.textContent = `✅ 接続成功！ユーザー: ${d.name}`;
+    } else {
+      st.className = 'api-status err';
+      st.textContent = '❌ トークンが無効です';
+    }
+  } catch {
+    st.className = 'api-status err';
+    st.textContent = '❌ 接続エラー（GitHub Pages上で試してください）';
+  }
+}
+
+// ===== BUILD PROMPT =====
+function buildPrompt(serif, attempt) {
+  const hair = document.getElementById('hairStyle').value;
+  const cloth = document.getElementById('clothing').value;
+  const shoes = document.getElementById('shoes').value;
+  const hairCol = document.getElementById('hairColor').value;
+  const free = document.getElementById('freeword').value.trim();
+  const pose = POSES[serif] || 'neutral pose, friendly smile';
+  const season = SEASON_CONTEXT[currentSeason];
+  const simplicity = attempt === 0
+    ? 'Use simple shapes, max 25 SVG elements.'
+    : 'ULTRA simple. Only basic circles and curves. Max 15 elements.';
+
+  const charDesc = [hairCol, hair, cloth, shoes, free].filter(Boolean).join(', ');
+
+  return `Draw a yuru-kawaii chibi character as SVG for a LINE sticker.
+Character: ${charDesc}
+Pose/expression: ${pose}
+Season/vibe: ${season}
+${simplicity}
+Colors: soft pastels — pink #FFD6E0, blue #B8E4F7, mint #E8F8F5, cream #FFF8E7, lavender #D4C5F0
+Canvas: viewBox="0 0 370 320" width="370" height="320". Start with white background rect.
+Chibi style: big round head, tiny body, huge sparkly eyes, rosy cheeks, expressive.
+IMPORTANT: Output ONLY the SVG code. Start with <svg and end with </svg>. No text inside image, no explanation.`;
+}
+
+// ===== HF API CALL =====
+async function callHF(serif, attempt) {
+  const token = document.getElementById('apiKey').value.trim();
+  const pose = POSES[serif] || 'neutral pose, friendly smile';
+  const season = SEASON_CONTEXT[currentSeason];
+  const hair = document.getElementById('hairStyle').value;
+  const cloth = document.getElementById('clothing').value;
+  const hairCol = document.getElementById('hairColor').value;
+  const free = document.getElementById('freeword').value.trim();
+
+  const prompt = `masterpiece, best quality, yuru-kawaii chibi sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, sticker style, expressive face, no text, simple design${free ? ', ' + free : ''}`;
+  const neg = 'realistic, photorealistic, 3d, ugly, deformed, text, watermark, complex background, dark background';
+
+  const res = await fetch('https://api-inference.huggingface.co/models/Lykon/dreamshaper-8', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: { negative_prompt: neg, num_inference_steps: 25, guidance_scale: 7.5, width: 512, height: 512 }
+    })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+// ===== CLAUDE SVG =====
+async function callClaudeSVG(serif, attempt) {
+  const prompt = buildPrompt(serif, attempt);
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  const text = data.content?.find(b => b.type === 'text')?.text || '';
+  const match = text.match(/<svg[\s\S]*?<\/svg>/i);
+  return match ? match[0] : null;
+}
+
+// ===== CANVAS: SVG+テキスト合成 =====
+function svgToCanvas(svgStr, serif) {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 370; canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      ctx.clearRect(0, 0, 370, 320);
+      ctx.drawImage(img, 0, 0, 370, 320);
+      URL.revokeObjectURL(url);
+
+      // セリフ文字合成
+      if (serif) {
+        const fontSize = serif.length <= 4 ? 28 : serif.length <= 6 ? 24 : 20;
+        ctx.font = `bold ${fontSize}px 'Kosugi Maru', 'Hiragino Kaku Gothic ProN', sans-serif`;
+        ctx.textAlign = 'center';
+        const textX = 185, textY = 300;
+        const metrics = ctx.measureText(serif);
+        const pw = metrics.width + 20, ph = fontSize + 10;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        roundRect(ctx, textX - pw/2, textY - ph + 2, pw, ph, 8);
+        ctx.fillStyle = 'white';
+        ctx.fillText(serif, textX, textY);
+      }
+      resolve(canvas);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function blobUrlToCanvas(blobUrl, serif) {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 370; canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, 370, 320);
+      if (serif) {
+        const fontSize = serif.length <= 4 ? 28 : 24;
+        ctx.font = `bold ${fontSize}px 'Kosugi Maru', sans-serif`;
+        ctx.textAlign = 'center';
+        const textX = 185, textY = 300;
+        const metrics = ctx.measureText(serif);
+        const pw = metrics.width + 20, ph = fontSize + 10;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        roundRect(ctx, textX - pw/2, textY - ph + 2, pw, ph, 8);
+        ctx.fillStyle = 'white';
+        ctx.fillText(serif, textX, textY);
+      }
+      resolve(canvas);
+    };
+    img.onerror = () => resolve(null);
+    img.src = blobUrl;
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ===== GENERATE =====
+let generatedCanvases = [];
+
+async function startGenerate() {
+  if (selected.length === 0) { showErr('セリフを1つ以上選んでください。'); return; }
+  hideErr();
+  generatedCanvases = [];
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  const pw = document.getElementById('progressWrap');
+  pw.classList.add('show');
+
+  const rc = document.getElementById('resultCard');
+  rc.style.display = 'block';
+  const rg = document.getElementById('resultGrid');
+  rg.innerHTML = '';
+
+  selected.forEach((s, i) => {
+    const preset = PRESETS.find(p => p.t === s);
+    rg.innerHTML += `
+      <div class="result-item" id="ri-${i}">
+        <div class="result-canvas-wrap" id="rw-${i}">
+          <div class="result-placeholder">${preset ? preset.e : '⏳'}</div>
+        </div>
+        <div class="result-serif-label">${s}</div>
+        <div id="rst-${i}" style="font-size:10px;color:var(--text-sub);margin-bottom:4px">待機中...</div>
+      </div>`;
+  });
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const token = document.getElementById('apiKey').value.trim();
+  const useHF = token.startsWith('hf_');
+
+  for (let i = 0; i < selected.length; i++) {
+    const serif = selected[i];
+    setProgress(Math.round(i / selected.length * 90), `「${serif}」を生成中... (${i+1}/${selected.length})`);
+    document.getElementById(`rw-${i}`).innerHTML = `<div class="result-spinning">✨</div>`;
+    document.getElementById(`rst-${i}`).textContent = '生成中...';
+
+    let canvas = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (useHF) {
+          const url = await callHF(serif, attempt);
+          canvas = await blobUrlToCanvas(url, serif);
+        } else {
+          const svg = await callClaudeSVG(serif, attempt);
+          if (svg) canvas = await svgToCanvas(svg, serif);
+        }
+        if (canvas) break;
+      } catch (e) { if (attempt === 1) console.warn(serif, e); }
+    }
+
+    generatedCanvases[i] = canvas;
+    const wrap = document.getElementById(`rw-${i}`);
+    const st = document.getElementById(`rst-${i}`);
+
+    if (canvas) {
+      wrap.innerHTML = '';
+      wrap.appendChild(canvas);
+      st.textContent = '✅ 完成';
+      st.style.color = '#69f0ae';
+
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'result-dl';
+      dlBtn.textContent = '⬇ PNGで保存';
+      dlBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `stamp_${serif}.png`;
+        a.click();
+      };
+      document.getElementById(`ri-${i}`).appendChild(dlBtn);
+    } else {
+      wrap.innerHTML = '<div style="font-size:22px">😵</div>';
+      st.textContent = '❌ エラー';
+      st.style.color = '#ff8a80';
+      const rb = document.createElement('button');
+      rb.className = 'retry-btn';
+      rb.textContent = '🔄 再試行';
+      rb.onclick = () => retryOne(i, serif);
+      document.getElementById(`ri-${i}`).appendChild(rb);
+    }
+  }
+
+  setProgress(100, '🎉 すべて完成！');
+  btn.disabled = false;
+  setTimeout(() => pw.classList.remove('show'), 2500);
+}
+
+async function retryOne(i, serif) {
+  document.getElementById(`rw-${i}`).innerHTML = `<div class="result-spinning">✨</div>`;
+  document.getElementById(`rst-${i}`).textContent = '再試行中...';
+  const token = document.getElementById('apiKey').value.trim();
+  const useHF = token.startsWith('hf_');
+  let canvas = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (useHF) {
+        const url = await callHF(serif, attempt);
+        canvas = await blobUrlToCanvas(url, serif);
+      } else {
+        const svg = await callClaudeSVG(serif, attempt);
+        if (svg) canvas = await svgToCanvas(svg, serif);
+      }
+      if (canvas) break;
+    } catch {}
+  }
+  generatedCanvases[i] = canvas;
+  const wrap = document.getElementById(`rw-${i}`);
+  const st = document.getElementById(`rst-${i}`);
+  if (canvas) {
+    wrap.innerHTML = ''; wrap.appendChild(canvas);
+    st.textContent = '✅ 完成'; st.style.color = '#69f0ae';
+  } else {
+    wrap.innerHTML = '<div style="font-size:22px">😵</div>';
+    st.textContent = '❌ エラー'; st.style.color = '#ff8a80';
+  }
+}
+
+// ===== ZIP DOWNLOAD =====
+async function downloadZip() {
+  const zip = new JSZip();
+  generatedCanvases.forEach((canvas, i) => {
+    if (!canvas) return;
+    const serif = selected[i];
+    const dataUrl = canvas.toDataURL('image/png');
+    const base64 = dataUrl.split(',')[1];
+    zip.file(`stamp_${String(i+1).padStart(2,'0')}_${serif}.png`, base64, { base64: true });
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stamps.zip';
+  a.click();
+}
+
+function setProgress(pct, text) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progText').textContent = text;
+  document.getElementById('progPct').textContent = pct + '%';
+}
+function showErr(msg) {
+  const b = document.getElementById('errBox');
+  b.textContent = '⚠️ ' + msg; b.style.display = 'block';
+}
+function hideErr() { document.getElementById('errBox').style.display = 'none'; }
+</script>
+</body>
+</html>
