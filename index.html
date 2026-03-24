@@ -676,17 +676,30 @@ async function callHF(serif, attempt) {
   const prompt = `masterpiece, best quality, yuru-kawaii chibi sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, sticker style, expressive face, no text, simple design${free ? ', ' + free : ''}`;
   const neg = 'realistic, photorealistic, 3d, ugly, deformed, text, watermark, complex background, dark background';
 
-  const res = await fetch('https://api-inference.huggingface.co/models/Lykon/dreamshaper-8', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: { negative_prompt: neg, num_inference_steps: 25, guidance_scale: 7.5, width: 512, height: 512 }
-    })
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
+  // 複数モデルを順番に試す
+  const models = [
+    'dreamlike-art/dreamlike-anime-1.0',
+    'Ojimi/anime-kawai-diffusion',
+    'hakurei/waifu-diffusion',
+  ];
+
+  for (const model of models) {
+    try {
+      const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: { negative_prompt: neg, num_inference_steps: 20, guidance_scale: 7.5, width: 512, height: 512 }
+        })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 1000) return URL.createObjectURL(blob);
+      }
+    } catch {}
+  }
+  throw new Error('全モデルでエラー');
 }
 
 // ===== CLAUDE SVG =====
