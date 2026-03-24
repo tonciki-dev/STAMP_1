@@ -329,16 +329,15 @@ body {
 
 <div class="main">
 
-  <!-- POLLINATIONS INFO -->
+  <!-- STABILITY AI KEY -->
   <div class="card">
-    <div class="card-title">✨ AI画像生成エンジン</div>
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(105,240,174,0.1);border-radius:12px;border:1px solid rgba(105,240,174,0.25)">
-      <span style="font-size:24px">🆓</span>
-      <div>
-        <div style="color:#69f0ae;font-weight:bold;font-size:13px">Pollinations AI（完全無料・登録不要）</div>
-        <div style="color:var(--text-sub);font-size:11px;margin-top:2px">トークン不要。そのまま生成できます！</div>
-      </div>
+    <div class="card-title">🔑 Stability AI APIキー</div>
+    <div class="api-row">
+      <input type="password" id="stabilityKey" placeholder="sk-xxxxxxxxxxxxxxxx">
+      <button class="btn-small" onclick="checkStability()">確認</button>
     </div>
+    <div class="api-status" id="apiStatus"></div>
+    <div class="api-note">⚠️ キーはブラウザ内のみで使用。外部送信なし。登録時25クレジット無料。</div>
   </div>
 
   <!-- 写真アップロード -->
@@ -643,30 +642,74 @@ Chibi style: big round head, tiny body, huge sparkly eyes, rosy cheeks, expressi
 IMPORTANT: Output ONLY the SVG code. Start with <svg and end with </svg>. No text inside image, no explanation.`;
 }
 
-// ===== POLLINATIONS AI =====
-function buildPollinationsUrl(serif) {
+// ===== STABILITY AI =====
+async function checkStability() {
+  const key = document.getElementById('stabilityKey').value.trim();
+  if (!key) return;
+  const st = document.getElementById('apiStatus');
+  st.className = 'api-status'; st.textContent = '確認中...'; st.style.display = 'block';
+  try {
+    const res = await fetch('https://api.stability.ai/v1/user/account', {
+      headers: { 'Authorization': `Bearer ${key}` }
+    });
+    if (res.ok) {
+      const d = await res.json();
+      st.className = 'api-status ok';
+      st.textContent = `✅ 接続成功！残クレジット: ${d.credits?.toFixed(2) ?? '確認中'}`;
+    } else {
+      st.className = 'api-status err';
+      st.textContent = '❌ キーが無効です';
+    }
+  } catch(e) {
+    st.className = 'api-status err';
+    st.textContent = '❌ 接続エラー: ' + e.message;
+  }
+}
+
+function buildStabilityPrompt(serif) {
   const pose = POSES[serif] || 'neutral pose, friendly smile';
   const season = SEASON_CONTEXT[currentSeason];
   const hair = document.getElementById('hairStyle').value;
   const cloth = document.getElementById('clothing').value;
   const hairCol = document.getElementById('hairColor').value;
   const free = document.getElementById('freeword').value.trim();
-  const prompt = encodeURIComponent(
-    `kawaii chibi anime sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute expressive face, simple clean design, no text${free ? ', ' + free : ''}`
-  );
-  const seed = Math.floor(Math.random() * 999999);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+  return `yuru-kawaii chibi anime sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute round eyes, rosy cheeks, expressive face, simple clean line art, no text, sticker style${free ? ', ' + free : ''}`;
 }
 
-// imgタグで画像読み込み（CORS不要・シンプル）
-function loadImageByTag(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const timeout = setTimeout(() => reject(new Error('タイムアウト(60秒)')), 60000);
-    img.onload = () => { clearTimeout(timeout); resolve(img); };
-    img.onerror = () => { clearTimeout(timeout); reject(new Error('画像読み込み失敗')); };
-    img.src = url;
+async function generateStabilityImage(serif) {
+  const key = document.getElementById('stabilityKey').value.trim();
+  if (!key) throw new Error('APIキーを入力してください');
+  const prompt = buildStabilityPrompt(serif);
+  const neg = 'realistic, photorealistic, 3d render, ugly, deformed, text, watermark, dark background, nsfw, complex background';
+
+  const res = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      text_prompts: [
+        { text: prompt, weight: 1 },
+        { text: neg, weight: -1 }
+      ],
+      cfg_scale: 7,
+      height: 1024,
+      width: 1024,
+      steps: 30,
+      samples: 1,
+    })
   });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const b64 = data.artifacts?.[0]?.base64;
+  if (!b64) throw new Error('画像データなし');
+  return `data:image/png;base64,${b64}`;
 }
 
 // ===== CLAUDE SVG =====
@@ -773,6 +816,8 @@ function roundRect(ctx, x, y, w, h, r) {
 let generatedUrls = [];
 
 async function startGenerate() {
+  const key = document.getElementById('stabilityKey').value.trim();
+  if (!key) { showErr('Stability AI APIキーを入力してください。'); return; }
   if (selected.length === 0) { showErr('セリフを1つ以上選んでください。'); return; }
   hideErr();
   generatedCanvases = [];
@@ -855,40 +900,43 @@ async function startGenerate() {
 async function retryOne(i, serif) {
   document.getElementById(`rw-${i}`).innerHTML = `<div class="result-spinning">✨</div>`;
   document.getElementById(`rst-${i}`).textContent = '再試行中...';
-  const imgUrl = buildPollinationsUrl(serif);
-  generatedUrls[i] = { serif, url: imgUrl };
   try {
-    await loadImageByTag(imgUrl);
+    const dataUrl = await generateStabilityImage(serif);
+    generatedUrls[i] = { serif, url: dataUrl };
     const wrap = document.getElementById(`rw-${i}`);
     wrap.innerHTML = '';
     const container = document.createElement('div');
-    container.style.cssText = 'position:relative;width:100%;aspect-ratio:370/320;';
+    container.style.cssText = 'position:relative;width:100%;aspect-ratio:1;';
     const img = document.createElement('img');
-    img.src = imgUrl;
+    img.src = dataUrl;
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
     const label = document.createElement('div');
     label.textContent = serif;
     label.style.cssText = 'position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:white;font-size:13px;font-weight:bold;padding:3px 10px;border-radius:8px;white-space:nowrap;font-family:inherit;';
-    container.appendChild(img);
-    container.appendChild(label);
+    container.appendChild(img); container.appendChild(label);
     wrap.appendChild(container);
     document.getElementById(`rst-${i}`).textContent = '✅ 完成';
     document.getElementById(`rst-${i}`).style.color = '#69f0ae';
-  } catch {
+  } catch(e) {
     document.getElementById(`rw-${i}`).innerHTML = '<div style="font-size:22px">😵</div>';
-    document.getElementById(`rst-${i}`).textContent = '❌ エラー';
+    document.getElementById(`rst-${i}`).textContent = `❌ ${e.message}`;
     document.getElementById(`rst-${i}`).style.color = '#ff8a80';
   }
 }
 
-// ===== ZIP / 一括保存 =====
-function downloadZip() {
-  // 各画像を新しいタブで開く（スマホではこれが一番確実）
+// ===== ZIP DOWNLOAD =====
+async function downloadZip() {
+  const zip = new JSZip();
   generatedUrls.forEach((item, i) => {
-    if (!item) return;
-    setTimeout(() => window.open(item.url, '_blank'), i * 500);
+    if (!item || !item.url) return;
+    const base64 = item.url.split(',')[1];
+    if (base64) zip.file(`stamp_${String(i+1).padStart(2,'0')}_${item.serif}.png`, base64, { base64: true });
   });
-  alert('各スタンプを新しいタブで開きました！\n画像を長押し→「画像を保存」で保存できます。');
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stamps.zip';
+  a.click();
 }
 
 function setProgress(pct, text) {
