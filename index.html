@@ -287,7 +287,7 @@ body {
   width:100%; padding:5px; background:rgba(255,255,255,0.08);
   border:1px solid var(--card-border); border-radius:8px;
   color:var(--season-accent); font-size:10px; cursor:pointer;
-  font-family:inherit; transition:background 0.15s;
+  font-family:inherit; transition:background 0.15s; text-align:center; display:block;
 }
 .result-dl:hover { background:rgba(255,255,255,0.14); }
 .retry-btn {
@@ -295,6 +295,21 @@ body {
   background:rgba(255,100,100,0.1); border:1px solid rgba(255,100,100,0.3);
   border-radius:8px; color:#ff8a80; font-size:10px; cursor:pointer; font-family:inherit;
 }
+.composition-btn {
+  padding:6px 12px; border-radius:20px; font-family:inherit; font-size:11px;
+  cursor:pointer; background:rgba(255,255,255,0.06); color:var(--text-sub);
+  border:1.5px solid var(--card-border); transition:all 0.15s;
+}
+.composition-btn.active {
+  background:var(--btn-bg); color:white; border-color:transparent;
+  box-shadow:0 2px 8px var(--btn-shadow);
+}
+.prop-tag-btn {
+  padding:4px 10px; border-radius:20px; font-family:inherit; font-size:11px;
+  cursor:pointer; background:rgba(255,255,255,0.06); color:var(--text-sub);
+  border:1px solid var(--card-border); transition:all 0.15s;
+}
+.prop-tag-btn:hover { border-color:var(--season-accent); color:var(--season-accent2); }
 
 /* DL ALL */
 .dl-all-wrap { display:flex; gap:8px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
@@ -340,17 +355,70 @@ body {
     <div class="api-note">⚠️ キーはブラウザ内のみで使用。外部送信なし。登録時25クレジット無料。</div>
   </div>
 
-  <!-- 写真アップロード -->
+  <!-- 写真・スタイル画像アップロード -->
   <div class="card">
-    <div class="card-title">📸 写真アップロード <span>✅ Img2Img有効！イラスト化に使用されます</span></div>
-    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
-      <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
-      <div id="uploadContent">
-        <div class="upload-emoji">🤳</div>
-        <div class="upload-text"><strong>タップして写真を選ぶ</strong><br>顔写真を1枚アップロード</div>
+    <div class="card-title">📸 画像アップロード</div>
+
+    <!-- 写真（本人） -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px">👤 本人の写真（顔・全身・イラスト）</div>
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+        <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+        <div id="uploadContent">
+          <div class="upload-emoji">🤳</div>
+          <div class="upload-text"><strong>タップして選ぶ</strong><br>顔・全身・イラスト何でもOK</div>
+        </div>
       </div>
     </div>
-    <div class="img2img-note" id="img2imgNote">📌 写真をアップロードするとImg2Imgでイラスト化します。未アップロード時はテキストのみで生成。</div>
+
+    <!-- スタイル参照画像 -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px">🎨 スタイル参照画像（このイラスト風に生成）</div>
+      <div class="upload-area" id="styleUploadArea" onclick="document.getElementById('styleInput').click()">
+        <input type="file" id="styleInput" accept="image/*" onchange="handleStyleImage(event)">
+        <div id="styleUploadContent">
+          <div class="upload-emoji">🖼️</div>
+          <div class="upload-text"><strong>タップして選ぶ</strong><br>参考にしたいイラスト画像</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 構図選択 -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px">📐 構図を選ぶ</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="composition-btn active" data-comp="full body" onclick="setComposition(this,'full body','全身')">🧍 全身</button>
+        <button class="composition-btn" data-comp="upper body" onclick="setComposition(this,'upper body','バストアップ')">👤 バストアップ</button>
+        <button class="composition-btn" data-comp="face close-up" onclick="setComposition(this,'face close-up','顔アップ')">😊 顔アップ</button>
+        <button class="composition-btn" data-comp="sitting pose" onclick="setComposition(this,'sitting pose','座り')">🪑 座り</button>
+      </div>
+    </div>
+
+    <!-- 持ち物 -->
+    <div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px">🎸 持ち物・小道具</div>
+      <div style="display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.06);border-radius:11px;padding:8px 12px;border:1px solid var(--card-border)">
+        <span>🎁</span>
+        <input type="text" id="propInput" placeholder="例：ギター、コーヒー、スマホ、花束…" style="border:none;background:transparent;font-family:inherit;font-size:12px;flex:1;outline:none;color:var(--text-main)">
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">
+        <button class="prop-tag-btn" onclick="addProp('acoustic guitar')">🎸 アコギ</button>
+        <button class="prop-tag-btn" onclick="addProp('electric guitar')">⚡ エレキ</button>
+        <button class="prop-tag-btn" onclick="addProp('ukulele')">🌺 ウクレレ</button>
+        <button class="prop-tag-btn" onclick="addProp('bass guitar')">🎵 ベース</button>
+        <button class="prop-tag-btn" onclick="addProp('djembe drum')">🥁 ジャンベ</button>
+        <button class="prop-tag-btn" onclick="addProp('drum set')">🥁 ドラム</button>
+        <button class="prop-tag-btn" onclick="addProp('microphone')">🎤 マイク</button>
+        <button class="prop-tag-btn" onclick="addProp('coffee cup')">☕ コーヒー</button>
+        <button class="prop-tag-btn" onclick="addProp('book')">📚 本</button>
+        <button class="prop-tag-btn" onclick="addProp('smartphone')">📱 スマホ</button>
+        <button class="prop-tag-btn" onclick="addProp('flower bouquet')">💐 花束</button>
+        <button class="prop-tag-btn" onclick="addProp('camera')">📷 カメラ</button>
+        <button class="prop-tag-btn" onclick="addProp('umbrella')">☂️ 傘</button>
+      </div>
+    </div>
+
+    <div class="img2img-note" id="img2imgNote">📌 写真をアップロードするとその特徴を活かしてイラスト化します</div>
   </div>
 
   <!-- キャラクターカスタマイズ -->
@@ -599,6 +667,8 @@ function updatePreview() {
 
 // ===== PHOTO UPLOAD =====
 let photoBase64 = null;
+let styleBase64 = null;
+let currentComposition = 'full body';
 
 function handlePhoto(e) {
   const file = e.target.files[0];
@@ -611,6 +681,33 @@ function handlePhoto(e) {
     document.getElementById('img2imgNote').className = 'img2img-note active';
   };
   reader.readAsDataURL(file);
+}
+
+function handleStyleImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    styleBase64 = ev.target.result.split(',')[1];
+    document.getElementById('styleUploadContent').innerHTML = `<img src="${ev.target.result}" class="photo-preview" style="max-height:100px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setComposition(btn, comp, label) {
+  currentComposition = comp;
+  document.querySelectorAll('.composition-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addProp(prop) {
+  const input = document.getElementById('propInput');
+  const current = input.value.trim();
+  if (current && !current.includes(prop)) {
+    input.value = current + '、' + prop;
+  } else if (!current) {
+    input.value = prop;
+  }
 }
 
 // ===== TOKEN CHECK (不要 - Pollinations使用) =====
@@ -673,7 +770,14 @@ function buildStabilityPrompt(serif) {
   const cloth = document.getElementById('clothing').value;
   const hairCol = document.getElementById('hairColor').value;
   const free = document.getElementById('freeword').value.trim();
-  return `yuru-kawaii chibi anime sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute round eyes, rosy cheeks, expressive face, simple clean line art, no text, sticker style${free ? ', ' + free : ''}`;
+  const prop = document.getElementById('propInput').value.trim();
+  const comp = currentComposition;
+
+  // スタイル参照がある場合はスタイル転送を意識したプロンプト
+  const styleHint = styleBase64 ? 'in the style of the reference image, ' : '';
+  const propHint = prop ? `, holding ${prop}, ${prop} in hands` : '';
+
+  return `${styleHint}yuru-kawaii chibi anime sticker, ${comp}, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute round eyes, rosy cheeks, expressive face, simple clean line art, no text, sticker style${propHint}${free ? ', ' + free : ''}`;
 }
 
 async function generateStabilityImage(serif) {
@@ -720,19 +824,20 @@ async function generateStabilityImage(serif) {
 
 // ===== IMG2IMG =====
 async function generateImg2Img(key, prompt, neg, serif) {
-  // photoBase64をリサイズして送信（1024x1024に合わせる）
-  const resizedB64 = await resizeImageToB64(photoBase64, 1024, 1024);
+  // 使用する画像: スタイル参照があればそちらを優先、なければ写真
+  const sourceB64 = styleBase64 || photoBase64;
+  const imageStrength = styleBase64 ? '0.35' : '0.45';
 
-  const formData = new FormData();
-  // base64をBlobに変換
+  const resizedB64 = await resizeImageToB64(sourceB64, 1024, 1024);
   const byteStr = atob(resizedB64);
   const arr = new Uint8Array(byteStr.length);
   for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
   const blob = new Blob([arr], { type: 'image/png' });
 
-  formData.append('init_image', blob, 'photo.png');
+  const formData = new FormData();
+  formData.append('init_image', blob, 'image.png');
   formData.append('init_image_mode', 'IMAGE_STRENGTH');
-  formData.append('image_strength', '0.45'); // 0=元画像に忠実, 1=プロンプト重視
+  formData.append('image_strength', imageStrength);
   formData.append('text_prompts[0][text]', prompt);
   formData.append('text_prompts[0][weight]', '1');
   formData.append('text_prompts[1][text]', neg);
@@ -741,18 +846,19 @@ async function generateImg2Img(key, prompt, neg, serif) {
   formData.append('steps', '30');
   formData.append('samples', '1');
 
+  // 写真も別途ある場合はプロンプトに特徴を追加（両方使う場合）
+  if (styleBase64 && photoBase64) {
+    formData.set('text_prompts[0][text]', prompt + ', maintaining character identity from reference photo');
+  }
+
   const res = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Accept': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
     body: formData,
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    // Img2Imgが失敗したらText2Imageにフォールバック
     console.warn('Img2Img failed, fallback to text2img:', err.message);
     return await generateText2Img(key, prompt, neg);
   }
