@@ -643,26 +643,47 @@ Chibi style: big round head, tiny body, huge sparkly eyes, rosy cheeks, expressi
 IMPORTANT: Output ONLY the SVG code. Start with <svg and end with </svg>. No text inside image, no explanation.`;
 }
 
-// ===== POLLINATIONS AI =====
-async function callPollinations(serif) {
+// ===== POLLINATIONS AI (img要素で読み込み・CORS回避) =====
+function buildPollinationsUrl(serif) {
   const pose = POSES[serif] || 'neutral pose, friendly smile';
   const season = SEASON_CONTEXT[currentSeason];
   const hair = document.getElementById('hairStyle').value;
   const cloth = document.getElementById('clothing').value;
   const hairCol = document.getElementById('hairColor').value;
   const free = document.getElementById('freeword').value.trim();
-
   const prompt = encodeURIComponent(
     `kawaii chibi anime sticker, ${hairCol}, ${hair}, ${cloth}, ${pose}, ${season}, pastel colors, white background, cute expressive face, simple clean design, no text${free ? ', ' + free : ''}`
   );
   const seed = Math.floor(Math.random() * 999999);
-  const url = `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+  return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+}
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Pollinations error: ${res.status}`);
-  const blob = await res.blob();
-  if (blob.size < 1000) throw new Error('画像サイズが小さすぎます');
-  return URL.createObjectURL(blob);
+async function callPollinations(serif) {
+  return new Promise((resolve, reject) => {
+    const url = buildPollinationsUrl(serif);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const timeout = setTimeout(() => reject(new Error('タイムアウト')), 60000);
+    img.onload = () => {
+      clearTimeout(timeout);
+      // imgをcanvasに描画してblobURLを取得
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth || 512;
+      c.height = img.naturalHeight || 512;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      c.toBlob(blob => {
+        if (blob && blob.size > 1000) resolve(URL.createObjectURL(blob));
+        else reject(new Error('Blob生成失敗'));
+      }, 'image/png');
+    };
+    img.onerror = () => {
+      clearTimeout(timeout);
+      // CORS失敗時はURLをそのまま返す（blobUrlToCanvasがcrossOriginなしで試みる）
+      resolve(url);
+    };
+    img.src = url;
+  });
 }
 
 // ===== CLAUDE SVG =====
@@ -723,7 +744,12 @@ function blobUrlToCanvas(blobUrl, serif) {
     canvas.width = 370; canvas.height = 320;
     const ctx = canvas.getContext('2d');
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // blob:// URLはcrossOrigin不要、http URLは設定
+    if (blobUrl.startsWith('blob:')) {
+      // crossOriginなし
+    } else {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       ctx.drawImage(img, 0, 0, 370, 320);
       if (serif) {
